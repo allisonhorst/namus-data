@@ -1,0 +1,111 @@
+---
+title: "namus data exploration"
+author: "Allison Horst"
+date: "5/8/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load packages:
+```{r}
+suppressMessages(library(tidyverse))
+library(sf)
+library(mapview)
+library(janitor)
+library(USAboundaries)
+library(leaflet)
+```
+
+Read in data: 
+```{r}
+missing_f <- read_csv("missing_f.csv") %>% 
+  clean_names() %>% 
+  separate(missing_age, c("age_no","unit"), sep = " ") %>% # NOTE: bad b/c removes "less than" ages
+  select(-unit)
+
+unidentified_f <- read_csv("unidentified_f.csv") %>% 
+  clean_names() %>% 
+  rename(state_name = state)
+
+unclaimed_mf <- read_csv("unclaimed_mf.csv") %>% 
+  clean_names() %>% 
+  rename(county_name = county)
+
+```
+
+Cities lat/lon data:  https://simplemaps.com/data/us-cities.
+*Note: didn't want to deal w/Google API, so using a CSV of city lat/lon instead.*
+```{r}
+
+cities_geo <- read_csv("us_cities.csv") %>% 
+  rename(state = state_id)
+
+```
+
+Join with missing/unidentified/unclaimed data w/spatial lat/lon:
+```{r}
+
+missing_by_city <- inner_join(missing_f, cities_geo)
+unidentified_by_city <- inner_join(unidentified_f, cities_geo)
+# unclaimed_by_city <- inner_join(unclaimed_mf, cities_geo)
+
+```
+
+Convert to simple features:
+```{r}
+
+miss_f <- missing_by_city %>% 
+  separate(race_ethnicity, c("first","second","third"), sep = ",") %>% 
+  unite(full_name, "first_name","last_name", sep = " ") %>% 
+  filter(age_no != "<") %>% 
+  mutate(age_no = as.numeric(age_no))
+
+missing <- st_as_sf(miss_f, coords = c("lng","lat"), crs = 4326)
+
+st_write(missing,"namus_exploration/missing.shp")
+
+# missing_by_city_sf <- st_as_sf(missing_by_city, coords = c("lng", "lat"), crs = 4326) %>% 
+#   filter(!state_name %in% c("Alaska", "Hawaii","Puerto Rico")) %>% 
+#   unite(full_name, "first_name","last_name", sep = " ") %>% 
+#   filter(age_no != "<") %>% 
+#   mutate(age_no = as.numeric(age_no)) %>% 
+#   separate(race_ethnicity, c("first_rc_ethn","second_rc_ethn"), sep = ",")
+
+# unidentified_by_city_sf <- st_as_sf(unidentified_by_city, coords = c("lng","lat"), crs = 4326) %>% 
+#   filter(!state_name %in% c("Alaska", "Hawaii", "Puerto Rico")) %>% 
+#   separate(race_ethnicity, c("first_rc_ethn","second_rc_ethn"), sep = ",")
+
+# Write these (entire continental US):
+
+st_write(missing_by_city_sf,"namus_exploration/us_miss.shp", delete_layer = TRUE)
+st_write(unidentified_by_city_sf, "namus_exploration/us_unidentified.shp", delete_layer = TRUE)
+
+```
+
+States only: 
+```{r}
+us_states <- states_contemporary_lores %>% 
+  filter(jurisdiction_type == "state") %>% 
+  filter(!state_name %in% c("Alaska", "Hawaii"))
+  
+```
+
+
+Now with ggplot2:
+```{r}
+
+ggplot() +
+  geom_sf(data = us_states, 
+          fill = "gray10",
+          color = "gray40",
+          size = 0.2) +
+  geom_sf(data = missing_by_city_sf, size = 0.5, color = "royalblue2") +
+  geom_sf(data = unidentified_by_city_sf, size = 0.7, color = "gold") +
+  theme_void() +
+  coord_sf(datum = NA)
+
+```
+
