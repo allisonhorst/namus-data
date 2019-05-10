@@ -69,9 +69,12 @@ unid_f <- unidentified_by_city %>%
 # Define UI for application that draws a histogram
 ui <- fluidPage(
     # shinythemes::themeSelector(),
-    navbarPage("Missing and Unidentified",
+    navbarPage("U.S. MISSING AND UNIDENTIFIED WOMEN",
                theme = shinythemes::shinytheme("cyborg"),
-               tabPanel("By race / ethnicity",
+
+tabPanel("Search by race, age and time",
+
+         p("Use this page to show locations for missing and unidentified women based on race/ethnicity, age, and year of last contact or when body was found. All data were retrieved from NamUS on May 8th, 2019, and do not include updates or new information since that date."),
     # theme = shinytheme("slate"),
     # # Application title
     # titlePanel("California missings, with surrounding states' unidentified"),
@@ -79,7 +82,8 @@ ui <- fluidPage(
     # Sidebar with a slider input for number of bins
     sidebarLayout(
         sidebarPanel(
-            checkboxGroupInput("race_choice",
+            h4("Specify parameters:"),
+            selectInput("race_choice",
                                label = h6("Race / Ethnicity of missing:"),
                                unique(miss_f$first),
                                selected = "Other"
@@ -118,12 +122,22 @@ ui <- fluidPage(
     )
     ),
 
-tabPanel("by name",
+tabPanel("By name",
 
-    h1("blah blah")
+    sidebarLayout(
+        sidebarPanel(
+            textInput("name_enter",
+                      label = "Enter first and last name of missing (First Last):"),
+            actionButton("run_name","Run")
+        ),
+
+        mainPanel(
+            leafletOutput("name_map")
+        )
+    )
 ),
 
-tabPanel("by year",
+tabPanel("By case information",
          h2("testing again")
          )
     )
@@ -174,6 +188,51 @@ server <- function(input, output) {
                                  "Date discovered:", choose_options_unid$date_found, "<br>",
                                            "Race:", choose_options_unid$first, "<br>",
                                            "Minimum age:", choose_options_unid$age_from, "<br>")) %>%
+            addProviderTiles("CartoDB.DarkMatter")
+    })
+
+    output$name_map <- renderLeaflet({
+
+        # Select missings based on name input:
+        name_select <- miss_f %>%
+            filter(full_name == input$name_enter)
+
+        #############################
+        # Filter unidentified to include only matches (by race/ethnicity, age, and dlc)
+        # THIS NEEDS TO BE UPDATED - should be and inclusive, or NAs
+        #############################
+
+        unid_matches_name <- unid_f %>%
+            filter(first == name_select$first | first == "Uncertain") %>%
+            filter(year_correct >= name_select$year_correct) %>%
+            filter(age_from <= name_select$age_no | is.na(age_from)) %>%
+            filter(age_to >= name_select$age_no | is.na(age_to))
+
+        # Then add it to the map
+        leaflet() %>%
+            addTiles() %>%
+            addCircleMarkers(data = name_select,
+                             color = "cyan",
+                             radius = 6,
+                             stroke = FALSE,
+                             fillOpacity = 0.5,
+                             popup = paste("Name:", name_select$full_name, "<br>",
+                                           "First race listed:", name_select$first,"<br>",
+                                           "Last contact:", name_select$dlc, "<br>",
+                                           "Age reported missing:", name_select$age_no, "<br>",
+                                           "Case number:", name_select$case_number)
+                             ) %>%
+            addCircleMarkers(data = unid_matches_name,
+                             color = "orange",
+                             radius = 3,
+                             stroke = FALSE,
+                             fillOpacity = 0.5,
+                             popup = paste("Case number:", unid_matches_name$case,"<br>",
+                                           "Date discovered:", unid_matches_name$date_found, "<br>",
+                                           "Race:", unid_matches_name$first, "<br>",
+                                           "Minimum age:", unid_matches_name$age_from, "<br>",
+                                           "Maximum age:", unid_matches_name$age_to
+                             )) %>%
             addProviderTiles("CartoDB.DarkMatter")
     })
 }
