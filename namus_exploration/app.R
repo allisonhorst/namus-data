@@ -136,34 +136,40 @@ server <- function(input, output) {
     output$map <- renderLeaflet({
 
         choose_options_miss <- miss_f %>%
-            filter(first == input$race_choice | second == input$race_choice) %>%
-            filter(age_no >= input$age_slider[1] & age_no <= input$age_slider[2]) %>%
-            filter(year_correct >= input$year_missing[1] & year_correct <= input$year_missing[2])
+            filter(first == input$race_choice |
+                       second == input$race_choice) %>%
+            filter(age_no >= input$age_slider[1] &
+                       age_no <= input$age_slider[2]) %>%
+            filter(year_correct >= input$year_missing[1] &
+                       year_correct <= input$year_missing[2])
 
         choose_options_unid <- unid_f %>%
-            filter(first %in% c(input$race_choice, "Uncertain") | second %in% c(input$race_choice, "Uncertain")) %>%
-            filter(age_from >= input$age_slider_up[1] & age_to <= input$age_slider_up[2]) %>%
-            filter(year_correct >= input$year_found[1] & year_correct <= input$year_found[2])
+            filter(first %in% c(input$race_choice, "Uncertain") |
+                       second %in% c(input$race_choice, "Uncertain")) %>%
+            filter(age_from >= input$age_slider_up[1] &
+                       age_to <= input$age_slider_up[2]) %>%
+            filter(year_correct >= input$year_found[1] &
+                       year_correct <= input$year_found[2])
 
 
         # Creating map
         leaflet() %>%
             addTiles() %>%
             addCircleMarkers(data = choose_options_miss,
-                             color = "yellow",
+                             color = "cyan",
                              stroke = FALSE,
-                             fillOpacity = 0.8,
-                             radius = 2,
+                             fillOpacity = 0.5,
+                             radius = 3,
                              popup = paste("Name:", choose_options_miss$full_name, "<br>",
                                                    "Last contact:", choose_options_miss$dlc, "<br>",
                                                    "Age reported missing:", choose_options_miss$age_no, "<br>",
                                                     "Case number:", choose_options_miss$case_number)
                              ) %>%
             addCircleMarkers(data = choose_options_unid,
-                             color = "firebrick",
+                             color = "orange",
                              stroke = FALSE,
-                             fillOpacity = 0.8,
-                             radius = 2,
+                             fillOpacity = 0.5,
+                             radius = 3,
                              popup = paste("Case number:", choose_options_unid$case,"<br>",
                                  "Date discovered:", choose_options_unid$date_found, "<br>",
                                            "Race:", choose_options_unid$first, "<br>",
